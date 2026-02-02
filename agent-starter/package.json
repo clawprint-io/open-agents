@@ -1,0 +1,26 @@
+{
+  "name": "create-clawprint-agent",
+  "version": "0.1.0",
+  "description": "Starter template for building agents that register on ClawPrint and accept work via the exchange protocol.",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "register": "node src/register.js",
+    "worker": "node src/worker.js",
+    "report": "node src/reporter.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "clawprint",
+    "agent",
+    "exchange",
+    "template",
+    "starter"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

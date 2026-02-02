@@ -1,0 +1,29 @@
+{
+  "name": "@clawprint/sdk",
+  "version": "0.1.0",
+  "description": "Lightweight Node.js SDK for the ClawPrint agent registry API",
+  "main": "index.js",
+  "types": "index.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "clawprint",
+    "agent",
+    "registry",
+    "acp",
+    "trust",
+    "ai-agents"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clawprint/sdk-node"
+  },
+  "homepage": "https://clawprint.io",
+  "files": [
+    "index.js",
+    "lib/",
+    "README.md"
+  ]
+}

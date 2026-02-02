@@ -1,0 +1,250 @@
+# Sample Agent Cards from the spec (§10)
+# Used by seed.js to populate the registry
+
+---
+# 10.1 Task Execution Agent
+agent_card: "0.2"
+identity:
+  name: "SandboxExec"
+  handle: "sandbox-exec"
+  description: "Executes Python 3.12, Node.js 22, and Bash in isolated containers with 8GB RAM."
+  url: "https://sandboxexec.io"
+  operator:
+    name: "CloudRun Labs"
+    url: "https://cloudrunlabs.com"
+    contact: "ops@cloudrunlabs.com"
+services:
+  - id: "execute-code"
+    description: "Run code in a sandboxed container"
+    domains: ["code-execution"]
+    input:
+      format: "json"
+      schema:
+        type: "object"
+        required: ["language", "code"]
+        properties:
+          language:
+            type: "string"
+            enum: ["python", "nodejs", "bash"]
+          code:
+            type: "string"
+            maxLength: 100000
+    output:
+      format: "json"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.002, currency: "USD" }
+    sla:
+      response_time: "sync"
+      max_latency_ms: 30000
+      typical_latency_ms: 1200
+      availability: "24/7"
+      uptime: 0.999
+    limits:
+      rate: { requests: 100, window: "1m" }
+      max_concurrent: 50
+  - id: "install-packages"
+    description: "Pre-install packages into a persistent container environment"
+    domains: ["code-execution"]
+    input:
+      format: "json"
+    output:
+      format: "json"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.01, currency: "USD" }
+    sla:
+      response_time: "async"
+      max_latency_ms: 120000
+      typical_latency_ms: 30000
+interface:
+  endpoints:
+    - url: "https://api.sandboxexec.io/v1"
+      protocol: "rest"
+      auth:
+        type: "bearer"
+verification:
+  level: "operator-verified"
+  created: "2025-06-15T00:00:00Z"
+  uptime_history:
+    30d: 0.999
+    90d: 0.998
+    incidents_30d: 1
+meta:
+  updated: "2026-01-30T12:00:00Z"
+  ttl: 3600
+
+---
+# 10.2 Data/Research Agent
+agent_card: "0.2"
+identity:
+  name: "LexSearch"
+  handle: "lex-search"
+  description: "Searches US federal case law and returns structured citations with relevance scoring."
+  url: "https://lexsearch.law"
+  operator:
+    name: "LegalTech AI Inc."
+    url: "https://legaltechai.com"
+    contact: "support@legaltechai.com"
+services:
+  - id: "case-search"
+    description: "Full-text search across US federal case law with ranked results."
+    domains: ["legal-research", "data-search"]
+    input:
+      format: "json"
+    output:
+      format: "json"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.05, currency: "USD" }
+    sla:
+      response_time: "sync"
+      max_latency_ms: 15000
+      typical_latency_ms: 3000
+      availability: "24/7"
+      uptime: 0.997
+    limits:
+      rate: { requests: 30, window: "1m" }
+  - id: "citation-lookup"
+    description: "Resolve a legal citation to full case metadata."
+    domains: ["legal-research"]
+    input:
+      format: "json"
+    output:
+      format: "json"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.01, currency: "USD" }
+    sla:
+      response_time: "sync"
+      max_latency_ms: 5000
+      typical_latency_ms: 800
+interface:
+  endpoints:
+    - url: "https://api.lexsearch.law/v2"
+      protocol: "rest"
+      auth:
+        type: "api-key"
+constraints:
+  languages: ["en"]
+  regions: ["us"]
+verification:
+  level: "fully-verified"
+  created: "2025-03-01T00:00:00Z"
+  uptime_history:
+    30d: 0.997
+    90d: 0.995
+    incidents_30d: 2
+meta:
+  updated: "2026-01-28T18:00:00Z"
+  ttl: 7200
+
+---
+# 10.3 Minimal Agent
+agent_card: "0.2"
+identity:
+  name: "PingBot"
+  handle: "pingbot"
+  description: "Monitors URLs and sends alerts when they go down."
+services:
+  - id: "url-monitor"
+    domains: ["notification"]
+    sla:
+      response_time: "async"
+interface:
+  endpoints:
+    - url: "https://pingbot.io/api"
+      protocol: "rest"
+      auth:
+        type: "none"
+
+---
+# 10.4 Complex Multi-Service Agent
+agent_card: "0.2"
+identity:
+  name: "DataForge"
+  handle: "dataforge"
+  description: "Enterprise data pipeline agent. Extraction, transformation, analysis, and reporting."
+  url: "https://dataforge.ai"
+  operator:
+    name: "DataForge Inc."
+    url: "https://dataforge.ai"
+    contact: "agents@dataforge.ai"
+services:
+  - id: "extract"
+    description: "Extract structured data from unstructured sources (PDFs, web pages, images)."
+    domains: ["data-extraction", "web-scraping"]
+    input:
+      format: "json"
+    output:
+      format: "json"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.05, currency: "USD" }
+    sla:
+      response_time: "sync"
+      max_latency_ms: 30000
+      typical_latency_ms: 5000
+  - id: "transform"
+    description: "Transform datasets between formats, apply schemas, clean and normalize data."
+    domains: ["data-analysis", "file-processing"]
+    input:
+      format: "json"
+    output:
+      format: "json"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.01, currency: "USD" }
+    sla:
+      response_time: "sync"
+      max_latency_ms: 15000
+      typical_latency_ms: 2000
+  - id: "analyze"
+    description: "Statistical analysis, trend detection, anomaly identification on structured datasets."
+    domains: ["data-analysis"]
+    input:
+      format: "json"
+    output:
+      format: "json"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.10, currency: "USD" }
+    sla:
+      response_time: "async"
+      max_latency_ms: 300000
+      typical_latency_ms: 45000
+  - id: "report"
+    description: "Generate formatted reports (PDF, HTML, Markdown) from analysis results."
+    domains: ["document-generation"]
+    input:
+      format: "json"
+    output:
+      format: "binary"
+    pricing:
+      model: "per-request"
+      cost: { amount: 0.25, currency: "USD" }
+    sla:
+      response_time: "async"
+      max_latency_ms: 120000
+      typical_latency_ms: 30000
+interface:
+  endpoints:
+    - url: "https://api.dataforge.ai/v3"
+      protocol: "rest"
+      auth:
+        type: "oauth2"
+        token_url: "https://auth.dataforge.ai/token"
+constraints:
+  languages: ["en", "es", "fr", "de", "ja", "zh", "ko"]
+  regions: ["us", "eu", "ap"]
+  availability: "24/7"
+verification:
+  level: "fully-verified"
+  created: "2024-11-01T00:00:00Z"
+  uptime_history:
+    30d: 0.998
+    90d: 0.997
+    incidents_30d: 0
+meta:
+  updated: "2026-01-29T08:00:00Z"
+  ttl: 1800

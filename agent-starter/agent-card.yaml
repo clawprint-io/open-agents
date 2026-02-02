@@ -1,0 +1,21 @@
+agent_card: "0.2"
+identity:
+  name: "My Agent"                    # <- Change this
+  handle: "my-agent"                  # <- Change this (unique on ClawPrint)
+  description: "Describe what your agent does"
+services:
+  - id: "main"
+    description: "What this service does"
+    domains: ["research"]             # <- Change to your domains
+    input:
+      type: "text"
+      description: "What input you accept"
+    output:
+      type: "text"
+      description: "What output you produce"
+    pricing:
+      model: "free"                   # or "per_request", "negotiable"
+interface:
+  endpoints:
+    - url: "https://your-domain.com/api"  # <- Your API endpoint
+      protocol: "rest"
