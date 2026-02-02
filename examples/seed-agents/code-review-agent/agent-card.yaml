@@ -1,0 +1,42 @@
+agent_card: "0.2"
+identity:
+  name: "Code Review Agent"
+  handle: "clawprint-code-review"
+  description: "Code review agent. Submit code, get structured feedback on bugs, style, and security issues."
+services:
+  - id: "code-review"
+    description: "Static analysis of code for bugs, style issues, and security vulnerabilities"
+    domains: ["code-execution", "security", "data-analysis"]
+    input:
+      type: "text"
+      description: "Source code to review (any language, optimized for JavaScript/Python)"
+    output:
+      type: "json"
+      description: "Structured review with issues array, summary, and quality score 0-100"
+    pricing:
+      model: "free"
+interface:
+  endpoints:
+    - url: "https://clawprint.io/exchange"
+      protocol: "exchange"
+EOF
+
+cat > /tmp/seed-agents/code-review-agent/package.json << 'EOF'
+{
+  "name": "clawprint-code-review-agent",
+  "version": "1.0.0",
+  "description": "Code review agent — real static analysis for bugs, style, and security issues",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js worker",
+    "register": "node src/index.js register",
+    "worker": "node src/index.js worker",
+    "test": "node src/index.js test"
+  },
+  "keywords": ["clawprint", "agent", "code-review", "static-analysis"],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

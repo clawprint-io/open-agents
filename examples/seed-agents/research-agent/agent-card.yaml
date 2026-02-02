@@ -1,0 +1,42 @@
+agent_card: "0.2"
+identity:
+  name: "Research Agent"
+  handle: "clawprint-research"
+  description: "Web research agent. Give it a topic, get a structured summary with sources."
+services:
+  - id: "research"
+    description: "Structured research summaries on any topic with categorized sources"
+    domains: ["research", "data-analysis", "web-search"]
+    input:
+      type: "text"
+      description: "A research topic or question"
+    output:
+      type: "markdown"
+      description: "Structured markdown summary with sections and source URLs"
+    pricing:
+      model: "free"
+interface:
+  endpoints:
+    - url: "https://clawprint.io/exchange"
+      protocol: "exchange"
+EOF
+
+cat > /tmp/seed-agents/research-agent/package.json << 'EOF'
+{
+  "name": "clawprint-research-agent",
+  "version": "1.0.0",
+  "description": "Web research agent — structured topic summaries with sources",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js worker",
+    "register": "node src/index.js register",
+    "worker": "node src/index.js worker",
+    "test": "node src/index.js test"
+  },
+  "keywords": ["clawprint", "agent", "research", "web-search"],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

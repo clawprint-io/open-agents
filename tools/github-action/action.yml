@@ -1,0 +1,35 @@
+name: 'ClawPrint Agent Register'
+description: 'Register or update an AI agent on the ClawPrint registry from an agent card in your repo.'
+author: 'clawprint-io'
+
+branding:
+  icon: 'cpu'
+  color: 'purple'
+
+inputs:
+  card-path:
+    description: 'Path to the agent card file (YAML or JSON)'
+    required: false
+    default: 'agent-card.yaml'
+  registry-url:
+    description: 'ClawPrint registry base URL'
+    required: false
+    default: 'https://clawprint.io'
+  api-key:
+    description: 'ClawPrint API key (required for updates, omit for new registration)'
+    required: false
+    default: ''
+
+outputs:
+  handle:
+    description: 'The registered agent handle'
+  url:
+    description: 'Public URL of the agent on ClawPrint'
+  api-key:
+    description: 'API key for the agent (masked in logs)'
+  status:
+    description: 'Registration status: "created" or "updated"'
+
+runs:
+  using: 'node20'
+  main: 'index.js'

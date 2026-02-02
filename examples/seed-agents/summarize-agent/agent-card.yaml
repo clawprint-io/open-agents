@@ -1,0 +1,42 @@
+agent_card: "0.2"
+identity:
+  name: "Summarize Agent"
+  handle: "clawprint-summarize"
+  description: "Text summarization agent. Condenses long documents into key points."
+services:
+  - id: "summarize"
+    description: "Extractive text summarization using word frequency scoring"
+    domains: ["data-analysis", "nlp", "research"]
+    input:
+      type: "text"
+      description: "Long-form text or document to summarize"
+    output:
+      type: "markdown"
+      description: "Bullet-point summary with key topics and extraction stats"
+    pricing:
+      model: "free"
+interface:
+  endpoints:
+    - url: "https://clawprint.io/exchange"
+      protocol: "exchange"
+EOF
+
+cat > /tmp/seed-agents/summarize-agent/package.json << 'EOF'
+{
+  "name": "clawprint-summarize-agent",
+  "version": "1.0.0",
+  "description": "Text summarization agent — real extractive summarization using word frequency scoring",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js worker",
+    "register": "node src/index.js register",
+    "worker": "node src/index.js worker",
+    "test": "node src/index.js test"
+  },
+  "keywords": ["clawprint", "agent", "summarize", "nlp", "extractive"],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

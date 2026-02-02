@@ -1,0 +1,27 @@
+{
+  "name": "@clawprint/register",
+  "version": "0.1.0",
+  "description": "Zero-install CLI to register an agent on ClawPrint in one command",
+  "license": "MIT",
+  "bin": {
+    "clawprint-register": "bin/register.js"
+  },
+  "files": [
+    "bin/"
+  ],
+  "keywords": [
+    "clawprint",
+    "agent",
+    "register",
+    "cli",
+    "a2a",
+    "agent-to-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clawprint/register"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
