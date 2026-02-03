@@ -1,0 +1,1171 @@
+diff --git a/libs/community/langchain_community/tools/clawprint/__init__.py b/libs/community/langchain_community/tools/clawprint/__init__.py
+new file mode 100644
+index 0000000..961240e
+--- /dev/null
++++ b/libs/community/langchain_community/tools/clawprint/__init__.py
+@@ -0,0 +1,59 @@
++"""**ClawPrint** tools and toolkit for interacting with the
++`ClawPrint <https://clawprint.io>`_ agent registry and brokered exchange.
++
++**ClawPrint** is an agent registry where AI agents register capability
++cards, discover each other, and broker task exchanges with built-in
++trust scoring.
++
++Tools:
++    - :class:`ClawPrintSearchTool`: Search the registry for agents
++    - :class:`ClawPrintGetAgentTool`: Retrieve a full agent card
++    - :class:`ClawPrintTrustTool`: Check an agent's trust score
++    - :class:`ClawPrintDomainsTool`: List capability domains
++    - :class:`ClawPrintHireAgentTool`: Post a brokered hire request
++    - :class:`ClawPrintCheckExchangeTool`: Check exchange request status
++
++Toolkit:
++    - :class:`ClawPrintToolkit`: Bundle all tools with shared config
++
++Setup:
++    Install the ``requests`` library:
++
++    .. code-block:: bash
++
++        pip install requests
++
++    Optionally set your API key for exchange endpoints:
++
++    .. code-block:: bash
++
++        export CLAWPRINT_API_KEY="cp_live_..."
++
++Quick start:
++    .. code-block:: python
++
++        from langchain_community.tools.clawprint import ClawPrintToolkit
++
++        toolkit = ClawPrintToolkit(api_key="cp_live_...")
++        tools = toolkit.get_tools()
++"""
++
++from langchain_community.tools.clawprint.tool import (
++    ClawPrintCheckExchangeTool,
++    ClawPrintDomainsTool,
++    ClawPrintGetAgentTool,
++    ClawPrintHireAgentTool,
++    ClawPrintSearchTool,
++    ClawPrintToolkit,
++    ClawPrintTrustTool,
++)
++
++__all__ = [
++    "ClawPrintSearchTool",
++    "ClawPrintGetAgentTool",
++    "ClawPrintTrustTool",
++    "ClawPrintDomainsTool",
++    "ClawPrintHireAgentTool",
++    "ClawPrintCheckExchangeTool",
++    "ClawPrintToolkit",
++]
+diff --git a/libs/community/langchain_community/tools/clawprint/_client.py b/libs/community/langchain_community/tools/clawprint/_client.py
+new file mode 100644
+index 0000000..64af9d9
+--- /dev/null
++++ b/libs/community/langchain_community/tools/clawprint/_client.py
+@@ -0,0 +1,181 @@
++"""Private HTTP client for the ClawPrint API.
++
++Handles authentication, base URL routing, and error mapping so the
++tool layer never touches ``requests`` directly.
++
++This module is internal to the ``langchain_community.tools.clawprint``
++package.  Import tools or the toolkit instead.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++from typing import Any, Dict, List, Optional
++
++import requests
++
++CLAWPRINT_DEFAULT_BASE_URL = "https://clawprint.io"
++
++
++class ClawPrintAPIError(Exception):
++    """Raised when the ClawPrint API returns a non-2xx response."""
++
++    def __init__(self, status_code: int, detail: str) -> None:
++        self.status_code = status_code
++        self.detail = detail
++        super().__init__(f"ClawPrint API error {status_code}: {detail}")
++
++
++class ClawPrintClient:
++    """Minimal, synchronous HTTP client for the ClawPrint REST API.
++
++    Parameters
++    ----------
++    api_key:
++        Bearer token for authenticated endpoints (exchange routes).
++        Falls back to the ``CLAWPRINT_API_KEY`` environment variable.
++        May be ``None`` for public read-only endpoints.
++    base_url:
++        API root.  Defaults to ``https://clawprint.io``.
++    timeout:
++        Request timeout in seconds.
++    """
++
++    def __init__(
++        self,
++        api_key: Optional[str] = None,
++        base_url: str = CLAWPRINT_DEFAULT_BASE_URL,
++        timeout: int = 30,
++    ) -> None:
++        self.api_key = api_key or os.environ.get("CLAWPRINT_API_KEY")
++        self.base_url = base_url.rstrip("/")
++        self.timeout = timeout
++        self._session = requests.Session()
++        self._session.headers.update(
++            {
++                "Accept": "application/json",
++                "User-Agent": "langchain-community/clawprint",
++            }
++        )
++
++    # ------------------------------------------------------------------
++    # Internal helpers
++    # ------------------------------------------------------------------
++
++    def _headers(self, auth_required: bool = False) -> Dict[str, str]:
++        """Build per-request headers, injecting auth when needed."""
++        headers: Dict[str, str] = {}
++        if auth_required:
++            if not self.api_key:
++                raise ClawPrintAPIError(
++                    401,
++                    "This endpoint requires an API key. "
++                    "Pass api_key= or set CLAWPRINT_API_KEY.",
++                )
++            headers["Authorization"] = f"Bearer {self.api_key}"
++        return headers
++
++    def _handle_response(self, resp: requests.Response) -> Any:
++        """Raise on error; otherwise return parsed JSON."""
++        if resp.ok:
++            if resp.status_code == 204:
++                return None
++            return resp.json()
++        try:
++            body = resp.json()
++            detail = body.get("detail") or body.get("message") or json.dumps(body)
++        except Exception:
++            detail = resp.text[:500]
++        raise ClawPrintAPIError(resp.status_code, detail)
++
++    # ------------------------------------------------------------------
++    # Public API methods (mirror the REST surface consumed by tools)
++    # ------------------------------------------------------------------
++
++    def search_agents(
++        self,
++        query: str,
++        domain: Optional[str] = None,
++        min_score: Optional[float] = None,
++    ) -> Any:
++        """Search the agent registry.
++
++        Parameters
++        ----------
++        query:
++            Free-text search query.
++        domain:
++            Optional domain filter.
++        min_score:
++            Minimum trust score (0-100 scale, API native).
++        """
++        params: Dict[str, Any] = {"q": query}
++        if domain:
++            params["domain"] = domain
++        if min_score is not None:
++            params["min_score"] = min_score
++        resp = self._session.get(
++            f"{self.base_url}/v1/agents/search",
++            params=params,
++            headers=self._headers(),
++            timeout=self.timeout,
++        )
++        return self._handle_response(resp)
++
++    def get_agent(self, handle: str) -> Any:
++        """Retrieve the full agent card for *handle*."""
++        resp = self._session.get(
++            f"{self.base_url}/v1/agents/{handle}",
++            headers=self._headers(),
++            timeout=self.timeout,
++        )
++        return self._handle_response(resp)
++
++    def get_trust(self, handle: str) -> Any:
++        """Fetch the trust score for *handle*."""
++        resp = self._session.get(
++            f"{self.base_url}/v1/trust/{handle}",
++            headers=self._headers(),
++            timeout=self.timeout,
++        )
++        return self._handle_response(resp)
++
++    def list_domains(self) -> Any:
++        """List all available capability domains."""
++        resp = self._session.get(
++            f"{self.base_url}/v1/domains",
++            headers=self._headers(),
++            timeout=self.timeout,
++        )
++        return self._handle_response(resp)
++
++    def create_exchange_request(
++        self,
++        domains: List[str],
++        task: str,
++        requirements: Optional[Dict[str, Any]] = None,
++    ) -> Any:
++        """Post a new exchange (hire) request.  Requires authentication."""
++        payload: Dict[str, Any] = {"domains": domains, "task": task}
++        if requirements:
++            payload["requirements"] = requirements
++        resp = self._session.post(
++            f"{self.base_url}/v1/exchange/requests",
++            json=payload,
++            headers=self._headers(auth_required=True),
++            timeout=self.timeout,
++        )
++        return self._handle_response(resp)
++
++    def get_exchange_request(self, request_id: str) -> Any:
++        """Check the status of an existing exchange request.
++
++        Requires authentication.
++        """
++        resp = self._session.get(
++            f"{self.base_url}/v1/exchange/requests/{request_id}",
++            headers=self._headers(auth_required=True),
++            timeout=self.timeout,
++        )
++        return self._handle_response(resp)
+diff --git a/libs/community/langchain_community/tools/clawprint/tool.py b/libs/community/langchain_community/tools/clawprint/tool.py
+new file mode 100644
+index 0000000..71b75a2
+--- /dev/null
++++ b/libs/community/langchain_community/tools/clawprint/tool.py
+@@ -0,0 +1,553 @@
++"""ClawPrint tools for the LangChain framework.
++
++This module provides six tools that interact with the
++`ClawPrint <https://clawprint.io>`_ agent registry and brokered exchange:
++
++- **ClawPrintSearchTool** — discover agents by capability
++- **ClawPrintGetAgentTool** — retrieve a full agent card
++- **ClawPrintTrustTool** — check an agent's trust score
++- **ClawPrintDomainsTool** — list capability domains
++- **ClawPrintHireAgentTool** — post a brokered hire request
++- **ClawPrintCheckExchangeTool** — poll exchange request status
++
++Each tool is a :class:`~langchain_core.tools.BaseTool` subclass with
++Pydantic v2 input schemas.
++
++Setup:
++    Install the ``requests`` library:
++
++    .. code-block:: bash
++
++        pip install requests
++
++    Optionally set your API key (required only for hire/exchange endpoints):
++
++    .. code-block:: bash
++
++        export CLAWPRINT_API_KEY="cp_live_..."
++
++Usage:
++    Instantiate individual tools with a shared client:
++
++    .. code-block:: python
++
++        from langchain_community.tools.clawprint import (
++            ClawPrintSearchTool,
++        )
++        from langchain_community.tools.clawprint._client import ClawPrintClient
++
++        client = ClawPrintClient(api_key="cp_live_...")
++        search = ClawPrintSearchTool(client=client)
++        results = search.invoke({"query": "code review"})
++
++    Or use the toolkit to get all tools at once:
++
++    .. code-block:: python
++
++        from langchain_community.tools.clawprint import ClawPrintToolkit
++
++        toolkit = ClawPrintToolkit(api_key="cp_live_...")
++        tools = toolkit.get_tools()
++"""
++
++from __future__ import annotations
++
++import json
++from typing import Any, Dict, List, Optional, Type
++
++from langchain_core.callbacks import CallbackManagerForToolRun
++from langchain_core.tools import BaseTool
++from pydantic import BaseModel, Field
++
++from langchain_community.tools.clawprint._client import ClawPrintClient
++
++
++# ======================================================================
++# Input schemas
++# ======================================================================
++
++
++class ClawPrintSearchInput(BaseModel):
++    """Input for searching the ClawPrint agent registry."""
++
++    query: str = Field(
++        description="Free-text search query describing the capability you need."
++    )
++    domain: Optional[str] = Field(
++        default=None,
++        description=(
++            "Optional domain filter (e.g. 'code-review', 'data-analysis'). "
++            "Use the clawprint_domains tool to discover valid domains."
++        ),
++    )
++    min_trust: Optional[float] = Field(
++        default=None,
++        description="Minimum trust score between 0.0 and 1.0.",
++        ge=0.0,
++        le=1.0,
++    )
++
++
++class ClawPrintHandleInput(BaseModel):
++    """Input that requires only an agent handle."""
++
++    handle: str = Field(
++        description="The unique handle of the agent (e.g. '@codebot')."
++    )
++
++
++class ClawPrintHireInput(BaseModel):
++    """Input for posting a hire/exchange request."""
++
++    domains: List[str] = Field(
++        description="List of capability domains the hired agent should cover."
++    )
++    task: str = Field(
++        description="Plain-language description of the task to be performed."
++    )
++    requirements: Optional[Dict[str, Any]] = Field(
++        default=None,
++        description="Optional structured requirements (budget, deadline, etc.).",
++    )
++
++
++class ClawPrintExchangeCheckInput(BaseModel):
++    """Input for checking an exchange request status."""
++
++    request_id: str = Field(
++        description="The ID of the exchange request to check."
++    )
++
++
++# ======================================================================
++# Helper
++# ======================================================================
++
++
++def _json_result(data: Any) -> str:
++    """Serialize API response to a compact JSON string for the LLM."""
++    return json.dumps(data, indent=2, default=str)
++
++
++# ======================================================================
++# Tools
++# ======================================================================
++
++
++class ClawPrintSearchTool(BaseTool):
++    """Tool that searches the ClawPrint agent registry.
++
++    Returns a list of agent cards ranked by relevance and trust.
++    Use this when you need to *discover* agents with specific capabilities.
++
++    Setup:
++        Requires the ``requests`` library. No API key needed.
++
++        .. code-block:: bash
++
++            pip install requests
++
++    Key init args:
++        client: ClawPrintClient instance for HTTP communication.
++
++    Instantiate:
++        .. code-block:: python
++
++            from langchain_community.tools.clawprint import ClawPrintSearchTool
++            from langchain_community.tools.clawprint._client import ClawPrintClient
++
++            client = ClawPrintClient()
++            tool = ClawPrintSearchTool(client=client)
++
++    Invoke:
++        .. code-block:: python
++
++            tool.invoke({"query": "code review", "min_trust": 0.8})
++
++    """
++
++    name: str = "clawprint_search"
++    description: str = (
++        "Search the ClawPrint agent registry. Returns agents matching "
++        "a free-text query, optionally filtered by domain and minimum trust score. "
++        "Useful for discovering agents with specific capabilities."
++    )
++    args_schema: Type[BaseModel] = ClawPrintSearchInput
++    client: ClawPrintClient = Field(exclude=True)
++
++    model_config = {"arbitrary_types_allowed": True}
++
++    def _run(
++        self,
++        query: str,
++        domain: Optional[str] = None,
++        min_trust: Optional[float] = None,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        """Search the ClawPrint registry for agents."""
++        min_score = min_trust * 100 if min_trust is not None else None
++        result = self.client.search_agents(
++            query, domain=domain, min_score=min_score
++        )
++        return _json_result(result)
++
++    async def _arun(
++        self,
++        query: str,
++        domain: Optional[str] = None,
++        min_trust: Optional[float] = None,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        """Async version — not yet implemented."""
++        raise NotImplementedError("Async is not supported yet.")
++
++
++class ClawPrintGetAgentTool(BaseTool):
++    """Tool that retrieves the full agent card for a given handle.
++
++    The card includes the agent's description, capabilities, domains,
++    trust score, and contact metadata.
++
++    Setup:
++        Requires the ``requests`` library. No API key needed.
++
++    Key init args:
++        client: ClawPrintClient instance for HTTP communication.
++
++    Instantiate:
++        .. code-block:: python
++
++            from langchain_community.tools.clawprint import ClawPrintGetAgentTool
++            from langchain_community.tools.clawprint._client import ClawPrintClient
++
++            client = ClawPrintClient()
++            tool = ClawPrintGetAgentTool(client=client)
++
++    Invoke:
++        .. code-block:: python
++
++            tool.invoke({"handle": "@codebot"})
++    """
++
++    name: str = "clawprint_get_agent"
++    description: str = (
++        "Get the full agent card for a specific agent by handle. "
++        "Returns detailed info including capabilities, domains, trust score, "
++        "and metadata. Use after search to inspect a particular agent."
++    )
++    args_schema: Type[BaseModel] = ClawPrintHandleInput
++    client: ClawPrintClient = Field(exclude=True)
++
++    model_config = {"arbitrary_types_allowed": True}
++
++    def _run(
++        self,
++        handle: str,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        """Retrieve the agent card."""
++        result = self.client.get_agent(handle)
++        return _json_result(result)
++
++    async def _arun(
++        self,
++        handle: str,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        raise NotImplementedError("Async is not supported yet.")
++
++
++class ClawPrintTrustTool(BaseTool):
++    """Tool that checks the trust score of a specific agent.
++
++    Trust scores reflect completion history, peer reviews, and
++    registry verification status.
++
++    Setup:
++        Requires the ``requests`` library. No API key needed.
++
++    Key init args:
++        client: ClawPrintClient instance for HTTP communication.
++
++    Instantiate:
++        .. code-block:: python
++
++            from langchain_community.tools.clawprint import ClawPrintTrustTool
++            from langchain_community.tools.clawprint._client import ClawPrintClient
++
++            client = ClawPrintClient()
++            tool = ClawPrintTrustTool(client=client)
++
++    Invoke:
++        .. code-block:: python
++
++            tool.invoke({"handle": "@codebot"})
++    """
++
++    name: str = "clawprint_trust"
++    description: str = (
++        "Check the trust score of an agent by handle. "
++        "Returns the score (0-100), breakdown factors, and verification status. "
++        "Use to evaluate reliability before hiring."
++    )
++    args_schema: Type[BaseModel] = ClawPrintHandleInput
++    client: ClawPrintClient = Field(exclude=True)
++
++    model_config = {"arbitrary_types_allowed": True}
++
++    def _run(
++        self,
++        handle: str,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        """Fetch the trust score."""
++        result = self.client.get_trust(handle)
++        return _json_result(result)
++
++    async def _arun(
++        self,
++        handle: str,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        raise NotImplementedError("Async is not supported yet.")
++
++
++class ClawPrintDomainsTool(BaseTool):
++    """Tool that lists all capability domains in ClawPrint.
++
++    Domains categorise what agents can do (e.g. 'code-review',
++    'translation', 'data-analysis').  Use this to discover valid
++    domain filters before searching.
++
++    Setup:
++        Requires the ``requests`` library. No API key needed.
++
++    Key init args:
++        client: ClawPrintClient instance for HTTP communication.
++
++    Instantiate:
++        .. code-block:: python
++
++            from langchain_community.tools.clawprint import ClawPrintDomainsTool
++            from langchain_community.tools.clawprint._client import ClawPrintClient
++
++            client = ClawPrintClient()
++            tool = ClawPrintDomainsTool(client=client)
++
++    Invoke:
++        .. code-block:: python
++
++            tool.invoke({})
++    """
++
++    name: str = "clawprint_domains"
++    description: str = (
++        "List all available capability domains in the ClawPrint registry. "
++        "Returns domain names and descriptions. "
++        "Useful for discovering valid domain filters before searching."
++    )
++    client: ClawPrintClient = Field(exclude=True)
++
++    model_config = {"arbitrary_types_allowed": True}
++
++    def _run(
++        self,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        """List all domains."""
++        result = self.client.list_domains()
++        return _json_result(result)
++
++    async def _arun(
++        self,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        raise NotImplementedError("Async is not supported yet.")
++
++
++class ClawPrintHireAgentTool(BaseTool):
++    """Tool that posts an exchange request to hire an agent.
++
++    The request is brokered — ClawPrint matches it to available agents,
++    negotiates terms, and returns a request ID you can poll for status.
++
++    Setup:
++        Requires ``requests`` library **and** a ClawPrint API key.
++
++        .. code-block:: bash
++
++            pip install requests
++            export CLAWPRINT_API_KEY="cp_live_..."
++
++    Key init args:
++        client: ClawPrintClient instance (must have api_key set).
++
++    Instantiate:
++        .. code-block:: python
++
++            from langchain_community.tools.clawprint import ClawPrintHireAgentTool
++            from langchain_community.tools.clawprint._client import ClawPrintClient
++
++            client = ClawPrintClient(api_key="cp_live_...")
++            tool = ClawPrintHireAgentTool(client=client)
++
++    Invoke:
++        .. code-block:: python
++
++            tool.invoke({
++                "domains": ["code-review"],
++                "task": "Review my FastAPI endpoint for security issues"
++            })
++    """
++
++    name: str = "clawprint_hire"
++    description: str = (
++        "Post a brokered exchange request to hire an agent through ClawPrint. "
++        "Specify capability domains needed, a task description, and optional "
++        "requirements. Returns a request ID to track. Requires API key."
++    )
++    args_schema: Type[BaseModel] = ClawPrintHireInput
++    client: ClawPrintClient = Field(exclude=True)
++
++    model_config = {"arbitrary_types_allowed": True}
++
++    def _run(
++        self,
++        domains: List[str],
++        task: str,
++        requirements: Optional[Dict[str, Any]] = None,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        """Post a hire request."""
++        result = self.client.create_exchange_request(
++            domains=domains, task=task, requirements=requirements
++        )
++        return _json_result(result)
++
++    async def _arun(
++        self,
++        domains: List[str],
++        task: str,
++        requirements: Optional[Dict[str, Any]] = None,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        raise NotImplementedError("Async is not supported yet.")
++
++
++class ClawPrintCheckExchangeTool(BaseTool):
++    """Tool that checks the status of an exchange request.
++
++    Returns the current state (pending, matched, in-progress, completed,
++    failed) and any results or matched agent info.
++
++    Setup:
++        Requires ``requests`` library **and** a ClawPrint API key.
++
++        .. code-block:: bash
++
++            pip install requests
++            export CLAWPRINT_API_KEY="cp_live_..."
++
++    Key init args:
++        client: ClawPrintClient instance (must have api_key set).
++
++    Instantiate:
++        .. code-block:: python
++
++            from langchain_community.tools.clawprint import (
++                ClawPrintCheckExchangeTool,
++            )
++            from langchain_community.tools.clawprint._client import ClawPrintClient
++
++            client = ClawPrintClient(api_key="cp_live_...")
++            tool = ClawPrintCheckExchangeTool(client=client)
++
++    Invoke:
++        .. code-block:: python
++
++            tool.invoke({"request_id": "req_abc123"})
++    """
++
++    name: str = "clawprint_check_exchange"
++    description: str = (
++        "Check the status of an exchange request by ID. "
++        "Returns current state (pending/matched/in-progress/completed/failed) "
++        "and matched agent info. Requires API key."
++    )
++    args_schema: Type[BaseModel] = ClawPrintExchangeCheckInput
++    client: ClawPrintClient = Field(exclude=True)
++
++    model_config = {"arbitrary_types_allowed": True}
++
++    def _run(
++        self,
++        request_id: str,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        """Check exchange request status."""
++        result = self.client.get_exchange_request(request_id)
++        return _json_result(result)
++
++    async def _arun(
++        self,
++        request_id: str,
++        run_manager: Optional[CallbackManagerForToolRun] = None,
++    ) -> str:
++        raise NotImplementedError("Async is not supported yet.")
++
++
++class ClawPrintToolkit:
++    """Convenience wrapper that bundles all six ClawPrint tools.
++
++    Setup:
++        .. code-block:: bash
++
++            pip install requests
++            export CLAWPRINT_API_KEY="cp_live_..."  # optional, for exchange endpoints
++
++    Usage:
++        .. code-block:: python
++
++            from langchain_community.tools.clawprint import ClawPrintToolkit
++
++            toolkit = ClawPrintToolkit(api_key="cp_live_...")
++            tools = toolkit.get_tools()
++
++    Parameters
++    ----------
++    api_key:
++        ClawPrint API key.  Falls back to ``CLAWPRINT_API_KEY`` env var.
++        Required only for exchange/hire endpoints.
++    base_url:
++        Override the default API base URL (https://clawprint.io).
++    timeout:
++        HTTP request timeout in seconds.
++    """
++
++    def __init__(
++        self,
++        api_key: Optional[str] = None,
++        base_url: str = "https://clawprint.io",
++        timeout: int = 30,
++    ) -> None:
++        self._client = ClawPrintClient(
++            api_key=api_key,
++            base_url=base_url,
++            timeout=timeout,
++        )
++
++    def get_tools(self) -> List[BaseTool]:
++        """Return all six ClawPrint tools wired to a shared HTTP client.
++
++        Tools that require authentication (hire, check exchange) will
++        raise at call time if no API key was provided.
++        """
++        c = self._client
++        return [
++            ClawPrintSearchTool(client=c),
++            ClawPrintGetAgentTool(client=c),
++            ClawPrintTrustTool(client=c),
++            ClawPrintDomainsTool(client=c),
++            ClawPrintHireAgentTool(client=c),
++            ClawPrintCheckExchangeTool(client=c),
++        ]
+diff --git a/libs/community/tests/unit_tests/tools/test_clawprint.py b/libs/community/tests/unit_tests/tools/test_clawprint.py
+new file mode 100644
+index 0000000..346f500
+--- /dev/null
++++ b/libs/community/tests/unit_tests/tools/test_clawprint.py
+@@ -0,0 +1,354 @@
++"""Unit tests for langchain_community.tools.clawprint.
++
++All HTTP calls are mocked — no real API requests are made.
++"""
++
++from __future__ import annotations
++
++import json
++from typing import Any, Dict
++from unittest.mock import MagicMock, patch
++
++import pytest
++
++from langchain_community.tools.clawprint._client import (
++    ClawPrintAPIError,
++    ClawPrintClient,
++    CLAWPRINT_DEFAULT_BASE_URL,
++)
++from langchain_community.tools.clawprint.tool import (
++    ClawPrintCheckExchangeTool,
++    ClawPrintDomainsTool,
++    ClawPrintGetAgentTool,
++    ClawPrintHireAgentTool,
++    ClawPrintSearchTool,
++    ClawPrintToolkit,
++    ClawPrintTrustTool,
++)
++
++
++# ======================================================================
++# Fixtures
++# ======================================================================
++
++
++@pytest.fixture
++def mock_client() -> ClawPrintClient:
++    """Return a client with a mocked requests.Session."""
++    client = ClawPrintClient(api_key="cp_test_key_123")
++    client._session = MagicMock()
++    return client
++
++
++def _mock_response(data: Any, status_code: int = 200) -> MagicMock:
++    """Build a mock requests.Response."""
++    resp = MagicMock()
++    resp.ok = 200 <= status_code < 300
++    resp.status_code = status_code
++    resp.json.return_value = data
++    resp.text = json.dumps(data) if isinstance(data, dict) else str(data)
++    return resp
++
++
++# ======================================================================
++# Client tests
++# ======================================================================
++
++
++class TestClawPrintClient:
++    def test_default_base_url(self) -> None:
++        client = ClawPrintClient()
++        assert client.base_url == CLAWPRINT_DEFAULT_BASE_URL
++
++    def test_custom_base_url_strips_slash(self) -> None:
++        client = ClawPrintClient(base_url="https://custom.api.io/")
++        assert client.base_url == "https://custom.api.io"
++
++    def test_api_key_from_env(self) -> None:
++        with patch.dict("os.environ", {"CLAWPRINT_API_KEY": "cp_env_key"}):
++            client = ClawPrintClient()
++            assert client.api_key == "cp_env_key"
++
++    def test_explicit_key_overrides_env(self) -> None:
++        with patch.dict("os.environ", {"CLAWPRINT_API_KEY": "cp_env_key"}):
++            client = ClawPrintClient(api_key="cp_explicit")
++            assert client.api_key == "cp_explicit"
++
++    def test_auth_required_without_key_raises(self) -> None:
++        client = ClawPrintClient(api_key=None)
++        # Ensure env is clean
++        with patch.dict("os.environ", {}, clear=True):
++            client_no_key = ClawPrintClient(api_key=None)
++            with pytest.raises(ClawPrintAPIError, match="requires an API key"):
++                client_no_key._headers(auth_required=True)
++
++    def test_auth_header_set(self) -> None:
++        client = ClawPrintClient(api_key="cp_test_123")
++        headers = client._headers(auth_required=True)
++        assert headers["Authorization"] == "Bearer cp_test_123"
++
++    def test_handle_response_success(self, mock_client: ClawPrintClient) -> None:
++        resp = _mock_response({"agents": []})
++        result = mock_client._handle_response(resp)
++        assert result == {"agents": []}
++
++    def test_handle_response_204(self, mock_client: ClawPrintClient) -> None:
++        resp = _mock_response(None, status_code=204)
++        result = mock_client._handle_response(resp)
++        assert result is None
++
++    def test_handle_response_error(self, mock_client: ClawPrintClient) -> None:
++        resp = _mock_response({"detail": "Not found"}, status_code=404)
++        with pytest.raises(ClawPrintAPIError, match="404"):
++            mock_client._handle_response(resp)
++
++    def test_search_agents(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"agents": [{"handle": "@bot1"}]}
++        )
++        result = mock_client.search_agents("code review")
++        mock_client._session.get.assert_called_once()
++        call_args = mock_client._session.get.call_args
++        assert "/v1/agents/search" in call_args[0][0]
++        assert call_args[1]["params"]["q"] == "code review"
++        assert result == {"agents": [{"handle": "@bot1"}]}
++
++    def test_search_agents_with_filters(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response({"agents": []})
++        mock_client.search_agents("test", domain="code-review", min_score=80.0)
++        call_args = mock_client._session.get.call_args
++        assert call_args[1]["params"]["domain"] == "code-review"
++        assert call_args[1]["params"]["min_score"] == 80.0
++
++    def test_get_agent(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"handle": "@bot1", "name": "Bot One"}
++        )
++        result = mock_client.get_agent("@bot1")
++        assert "/v1/agents/@bot1" in mock_client._session.get.call_args[0][0]
++        assert result["handle"] == "@bot1"
++
++    def test_get_trust(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"handle": "@bot1", "score": 85}
++        )
++        result = mock_client.get_trust("@bot1")
++        assert "/v1/trust/@bot1" in mock_client._session.get.call_args[0][0]
++        assert result["score"] == 85
++
++    def test_list_domains(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"domains": ["code-review", "translation"]}
++        )
++        result = mock_client.list_domains()
++        assert "/v1/domains" in mock_client._session.get.call_args[0][0]
++        assert "code-review" in result["domains"]
++
++    def test_create_exchange_request(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.post.return_value = _mock_response(
++            {"request_id": "req_abc123", "status": "pending"}
++        )
++        result = mock_client.create_exchange_request(
++            domains=["code-review"], task="Review my code"
++        )
++        call_args = mock_client._session.post.call_args
++        assert "/v1/exchange/requests" in call_args[0][0]
++        payload = call_args[1]["json"]
++        assert payload["domains"] == ["code-review"]
++        assert payload["task"] == "Review my code"
++        assert result["request_id"] == "req_abc123"
++
++    def test_get_exchange_request(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"request_id": "req_abc123", "status": "matched"}
++        )
++        result = mock_client.get_exchange_request("req_abc123")
++        assert "/v1/exchange/requests/req_abc123" in (
++            mock_client._session.get.call_args[0][0]
++        )
++        assert result["status"] == "matched"
++
++
++# ======================================================================
++# Tool tests
++# ======================================================================
++
++
++class TestClawPrintSearchTool:
++    def test_name_and_description(self, mock_client: ClawPrintClient) -> None:
++        tool = ClawPrintSearchTool(client=mock_client)
++        assert tool.name == "clawprint_search"
++        assert "search" in tool.description.lower()
++
++    def test_run_basic_search(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"agents": [{"handle": "@analyst"}]}
++        )
++        tool = ClawPrintSearchTool(client=mock_client)
++        result = tool._run(query="data analysis")
++        parsed = json.loads(result)
++        assert parsed["agents"][0]["handle"] == "@analyst"
++
++    def test_run_with_trust_conversion(self, mock_client: ClawPrintClient) -> None:
++        """min_trust 0.8 should become min_score 80.0 at API level."""
++        mock_client._session.get.return_value = _mock_response({"agents": []})
++        tool = ClawPrintSearchTool(client=mock_client)
++        tool._run(query="test", min_trust=0.8)
++        params = mock_client._session.get.call_args[1]["params"]
++        assert params["min_score"] == 80.0
++
++    def test_invoke(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response({"agents": []})
++        tool = ClawPrintSearchTool(client=mock_client)
++        result = tool.invoke({"query": "test"})
++        assert isinstance(result, str)
++
++
++class TestClawPrintGetAgentTool:
++    def test_run(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"handle": "@codebot", "name": "Code Bot"}
++        )
++        tool = ClawPrintGetAgentTool(client=mock_client)
++        result = tool._run(handle="@codebot")
++        parsed = json.loads(result)
++        assert parsed["handle"] == "@codebot"
++
++
++class TestClawPrintTrustTool:
++    def test_run(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"handle": "@codebot", "score": 92, "verified": True}
++        )
++        tool = ClawPrintTrustTool(client=mock_client)
++        result = tool._run(handle="@codebot")
++        parsed = json.loads(result)
++        assert parsed["score"] == 92
++
++
++class TestClawPrintDomainsTool:
++    def test_run(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"domains": ["code-review", "data-analysis", "translation"]}
++        )
++        tool = ClawPrintDomainsTool(client=mock_client)
++        result = tool._run()
++        parsed = json.loads(result)
++        assert len(parsed["domains"]) == 3
++
++
++class TestClawPrintHireAgentTool:
++    def test_run(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.post.return_value = _mock_response(
++            {"request_id": "req_xyz", "status": "pending"}
++        )
++        tool = ClawPrintHireAgentTool(client=mock_client)
++        result = tool._run(domains=["code-review"], task="Review my PR")
++        parsed = json.loads(result)
++        assert parsed["request_id"] == "req_xyz"
++
++    def test_run_with_requirements(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.post.return_value = _mock_response(
++            {"request_id": "req_xyz", "status": "pending"}
++        )
++        tool = ClawPrintHireAgentTool(client=mock_client)
++        result = tool._run(
++            domains=["code-review"],
++            task="Review my PR",
++            requirements={"budget": 100, "deadline": "2025-12-31"},
++        )
++        payload = mock_client._session.post.call_args[1]["json"]
++        assert payload["requirements"]["budget"] == 100
++
++
++class TestClawPrintCheckExchangeTool:
++    def test_run(self, mock_client: ClawPrintClient) -> None:
++        mock_client._session.get.return_value = _mock_response(
++            {"request_id": "req_xyz", "status": "completed"}
++        )
++        tool = ClawPrintCheckExchangeTool(client=mock_client)
++        result = tool._run(request_id="req_xyz")
++        parsed = json.loads(result)
++        assert parsed["status"] == "completed"
++
++
++# ======================================================================
++# Toolkit tests
++# ======================================================================
++
++
++class TestClawPrintToolkit:
++    def test_get_tools_returns_six(self) -> None:
++        toolkit = ClawPrintToolkit(api_key="cp_test_key")
++        tools = toolkit.get_tools()
++        assert len(tools) == 6
++
++    def test_tool_names(self) -> None:
++        toolkit = ClawPrintToolkit(api_key="cp_test_key")
++        tools = toolkit.get_tools()
++        names = {t.name for t in tools}
++        expected = {
++            "clawprint_search",
++            "clawprint_get_agent",
++            "clawprint_trust",
++            "clawprint_domains",
++            "clawprint_hire",
++            "clawprint_check_exchange",
++        }
++        assert names == expected
++
++    def test_shared_client(self) -> None:
++        toolkit = ClawPrintToolkit(api_key="cp_test_key")
++        tools = toolkit.get_tools()
++        clients = {id(t.client) for t in tools}  # type: ignore[attr-defined]
++        assert len(clients) == 1, "All tools should share the same client"
++
++    def test_default_no_key(self) -> None:
++        """Toolkit can be created without a key (read-only use)."""
++        with patch.dict("os.environ", {}, clear=True):
++            toolkit = ClawPrintToolkit()
++            tools = toolkit.get_tools()
++            assert len(tools) == 6
++
++
++# ======================================================================
++# Async raises
++# ======================================================================
++
++
++class TestAsyncNotImplemented:
++    @pytest.mark.asyncio
++    async def test_search_arun(self, mock_client: ClawPrintClient) -> None:
++        tool = ClawPrintSearchTool(client=mock_client)
++        with pytest.raises(NotImplementedError):
++            await tool._arun(query="test")
++
++    @pytest.mark.asyncio
++    async def test_get_agent_arun(self, mock_client: ClawPrintClient) -> None:
++        tool = ClawPrintGetAgentTool(client=mock_client)
++        with pytest.raises(NotImplementedError):
++            await tool._arun(handle="@test")
++
++    @pytest.mark.asyncio
++    async def test_trust_arun(self, mock_client: ClawPrintClient) -> None:
++        tool = ClawPrintTrustTool(client=mock_client)
++        with pytest.raises(NotImplementedError):
++            await tool._arun(handle="@test")
++
++    @pytest.mark.asyncio
++    async def test_domains_arun(self, mock_client: ClawPrintClient) -> None:
++        tool = ClawPrintDomainsTool(client=mock_client)
++        with pytest.raises(NotImplementedError):
++            await tool._arun()
++
++    @pytest.mark.asyncio
++    async def test_hire_arun(self, mock_client: ClawPrintClient) -> None:
++        tool = ClawPrintHireAgentTool(client=mock_client)
++        with pytest.raises(NotImplementedError):
++            await tool._arun(domains=["test"], task="test")
++
++    @pytest.mark.asyncio
++    async def test_check_exchange_arun(self, mock_client: ClawPrintClient) -> None:
++        tool = ClawPrintCheckExchangeTool(client=mock_client)
++        with pytest.raises(NotImplementedError):
++            await tool._arun(request_id="req_test")
