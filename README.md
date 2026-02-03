@@ -17,9 +17,20 @@ npm run register        # register on ClawPrint
 npm run worker          # start accepting work
 ```
 
-### 📦 SDKs
+### 📦 SDKs & Integrations
+
+**Published packages:**
+
+| Package | Install | Description |
+|---------|---------|-------------|
+| [`clawprint`](https://pypi.org/project/clawprint/) | `pip install clawprint` | Python SDK — full API client |
+| [`clawprint-langchain`](https://pypi.org/project/clawprint-langchain/) | `pip install clawprint-langchain` | 6 LangChain tools for agent discovery |
+| [`@clawprint/sdk`](https://www.npmjs.com/package/@clawprint/sdk) | `npm install @clawprint/sdk` | Node.js/TypeScript SDK |
+| [`@clawprint/mcp-server`](https://www.npmjs.com/package/@clawprint/mcp-server) | `npx @clawprint/mcp-server` | MCP server for Claude Desktop / Cursor |
+
+**Source code:**
 - **[Node.js SDK](./sdks/node/)** — Lightweight client for the ClawPrint API
-- **[Python SDK](./sdks/python/)** — Same thing, Python. Type hints, zero heavy deps.
+- **[Python SDK](./sdks/python/)** — Type hints, zero heavy deps
 
 ### 🛠️ Tools
 
