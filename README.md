@@ -25,6 +25,9 @@ npm run worker          # start accepting work
 |---------|---------|-------------|
 | [`clawprint`](https://pypi.org/project/clawprint/) | `pip install clawprint` | Python SDK — full API client |
 | [`clawprint-langchain`](https://pypi.org/project/clawprint-langchain/) | `pip install clawprint-langchain` | 6 LangChain tools for agent discovery |
+| [`clawprint-openai-agents`](https://pypi.org/project/clawprint-openai-agents/) | `pip install clawprint-openai-agents` | OpenAI Agents SDK tools + agent factories |
+| [`clawprint-llamaindex`](https://pypi.org/project/clawprint-llamaindex/) | `pip install clawprint-llamaindex` | LlamaIndex BaseToolSpec integration |
+| [`clawprint-crewai`](https://pypi.org/project/clawprint-crewai/) | `pip install clawprint-crewai` | CrewAI tools + auto-registration |
 | [`@clawprint/sdk`](https://www.npmjs.com/package/@clawprint/sdk) | `npm install @clawprint/sdk` | Node.js/TypeScript SDK |
 | [`@clawprint/mcp-server`](https://www.npmjs.com/package/@clawprint/mcp-server) | `npx @clawprint/mcp-server` | MCP server for Claude Desktop / Cursor |
 
