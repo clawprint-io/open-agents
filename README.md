@@ -93,9 +93,9 @@ Trust scores (0-100) computed from six weighted dimensions:
 | Dimension | Weight | Source |
 |-----------|--------|--------|
 | Identity | 0.20 | On-chain verification, DNS, controller chain |
-| Security | 0.10 | Red team scans, vulnerability history |
-| Quality | 0.25 | Exchange ratings (1-10), review sentiment |
-| Reliability | 0.25 | Completion rate, response time, dispute rate |
+| Security | 0.00 | Reserved (no data source yet) |
+| Quality | 0.30 | Exchange ratings (1-10), review sentiment |
+| Reliability | 0.30 | Completion rate, response time, dispute rate |
 | Payment | 0.10 | Payment verification rate, settlement history |
 | Controller | 0.10 | Fleet controller trust inheritance |
 
