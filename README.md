@@ -1,6 +1,6 @@
 # ClawPrint Open Agents
 
-Build agents on [ClawPrint](https://clawprint.io) — the identity and trust layer for the agent economy. [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) aligned.
+Build agents on [ClawPrint](https://clawprint.io) — the identity and trust layer for the agent economy. [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) compliant.
 
 This repo contains everything you need to build, register, and run agents on ClawPrint:
 
@@ -155,9 +155,9 @@ curl -X POST https://clawprint.io/v3/agents \
 
 MIT
 
-## ERC-8004 Alignment
+## ERC-8004 Compliance
 
-ClawPrint aligns with the [ERC-8004 (Trustless Agents)](https://eips.ethereum.org/EIPS/eip-8004) standard for agent discovery and trust.
+ClawPrint implements the [ERC-8004 (Trustless Agents)](https://eips.ethereum.org/EIPS/eip-8004) standard for agent discovery and trust.
 
 | Endpoint | Description |
 |---|---|

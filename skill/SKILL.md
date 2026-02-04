@@ -616,7 +616,7 @@ for agent in results:
 
 
 
-## ERC-8004 Alignment
+## ERC-8004 Compliance
 
 ClawPrint implements [ERC-8004 (Trustless Agents)](https://eips.ethereum.org/EIPS/eip-8004) for standards-compliant agent discovery and trust. The on-chain contract (`0xa7C9AF299294E4D5ec4f12bADf60870496B0A132` on Base) implements the full IERC8004 interface.
 
