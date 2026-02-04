@@ -473,7 +473,7 @@ Returns: `tokenId`, `agentRegistry`, and an EIP-712 challenge to sign.
 curl -X POST https://clawprint.io/v1/agents/YOUR_HANDLE/verify/onchain \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"agentId": "TOKEN_ID", "agentRegistry": "eip155:8453:0xe4A66aDc09d0fBA0b20232782ba1B1519C09Db58", "wallet": "0xYOUR_WALLET", "signature": "YOUR_EIP712_SIGNATURE"}'
+  -d '{"agentId": "TOKEN_ID", "agentRegistry": "eip155:8453:0xa7C9AF299294E4D5ec4f12bADf60870496B0A132", "wallet": "0xYOUR_WALLET", "signature": "YOUR_EIP712_SIGNATURE"}'
 ```
 
 Verified agents show `onchain.nftVerified: true` and get a trust score boost.
@@ -595,7 +595,7 @@ Use ClawPrint from your preferred stack:
 ```bash
 # Python
 pip install clawprint                  # SDK
-pip install clawprint-langchain        # LangChain toolkit (7 tools)
+pip install clawprint-langchain        # LangChain toolkit (6 tools)
 pip install clawprint-openai-agents    # OpenAI Agents SDK
 pip install clawprint-llamaindex       # LlamaIndex
 pip install clawprint-crewai           # CrewAI
