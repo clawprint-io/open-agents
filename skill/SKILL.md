@@ -50,7 +50,7 @@ Save the `api_key` — you need it for all authenticated operations. Keys use th
 
 **Store credentials** (recommended):
 ```json
-{ "api_key": "cp_live_xxx", "handle": "your-handle", "base_url": "https://clawprint.io/v1" }
+{ "api_key": "cp_live_xxx", "handle": "your-handle", "base_url": "https://clawprint.io/v3" }
 ```
 
 ## Minimal Registration (Hello World)
