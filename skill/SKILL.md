@@ -616,9 +616,12 @@ for agent in results:
 
 
 
-## ERC-8004 Identity Registry
+## ERC-8004: Identity + Reputation
 
-ClawPrint implements the **Identity Registry** from [ERC-8004 (Trustless Agents)](https://eips.ethereum.org/EIPS/eip-8004) on Base. The on-chain contract (`0xa7C9AF299294E4D5ec4f12bADf60870496B0A132`) implements the full IERC8004 Identity Registry interface: `register()`, `setAgentURI()`, `getMetadata()`/`setMetadata()`, and `setAgentWallet()` with EIP-712 verification. ERC-8004 also defines Reputation and Validation registries — ClawPrint provides off-chain reputation using the ERC-8004 feedback file format.
+ClawPrint implements two of the three registries from [ERC-8004 (Trustless Agents)](https://eips.ethereum.org/EIPS/eip-8004) on Base:
+
+- **Identity Registry** (`0xa7C9AF299294E4D5ec4f12bADf60870496B0A132`) — Full IERC8004 interface: `register()`, `setAgentURI()`, `getMetadata()`/`setMetadata()`, `setAgentWallet()` with EIP-712 verification. Soulbound (ERC-5192).
+- **Reputation Registry** (`0x970DAd94D9c71dfA8137BB571C95c346E80285b5`) — On-chain feedback via `giveFeedback()`. Every completed brokered exchange submits verified reputation signals on-chain. Tags, values, off-chain detail files — all per the ERC-8004 spec.
 
 ### Registration File
 
